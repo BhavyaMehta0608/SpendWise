@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpendWise Pro — College Finance Dashboard</title>
+    <meta name="description" content="Professional personal finance analytics dashboard for college students. Track expenses, budgets, split bills, and savings goals.">
+
+    <!-- Google Fonts: Outfit (headings) + JetBrains Mono (numbers) + Inter (body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ========== COMMAND PALETTE ========== -->
+<div id="command-palette-overlay" class="cmd-overlay hidden" role="dialog" aria-modal="true">
+    <div class="cmd-palette">
+        <div class="cmd-header">
+            <i class="fa-solid fa-magnifying-glass cmd-icon"></i>
+            <input type="text" id="cmd-input" placeholder="Type a command or search..." autocomplete="off" spellcheck="false">
+            <kbd class="cmd-esc-key">ESC</kbd>
+        </div>
+        <div class="cmd-results" id="cmd-results">
+            <!-- Injected by JS -->
+        </div>
+        <div class="cmd-footer">
+            <span><kbd>↑↓</kbd> Navigate</span>
+            <span><kbd>↵</kbd> Select</span>
+            <span><kbd>ESC</kbd> Close</span>
+        </div>
+    </div>
+</div>
+
+<!-- ========== CONFIRM MODAL ========== -->
+<div id="confirm-modal" class="modal-overlay" role="dialog">
+    <div class="modal-box confirm-box">
+        <div class="confirm-icon-wrap">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <h3 id="confirm-title">Confirm Action</h3>
+        <p id="confirm-msg">This action cannot be undone.</p>
+        <div class="modal-actions">
+            <button id="cancel-confirm" class="btn btn-ghost">Cancel</button>
+            <button id="proceed-confirm" class="btn btn-danger">Proceed</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== TRANSACTION MODAL ========== -->
+<div id="transaction-modal" class="modal-overlay" role="dialog">
+    <div class="modal-box wide-box">
+        <div class="modal-hdr">
+            <div class="modal-hdr-left">
+                <div class="modal-icon-badge primary">
+                    <i class="fa-solid fa-plus" id="modal-hdr-icon"></i>
+                </div>
+                <h3 id="modal-title">Add Transaction</h3>
+            </div>
+            <button class="close-modal icon-btn" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="transaction-form" autocomplete="off">
+                <input type="hidden" id="txn-id">
+
+                <!-- Type Selector -->
+                <div class="type-segmented">
+                    <label class="type-seg-option">
+                        <input type="radio" name="txn-type" value="expense" checked>
+                        <span class="type-seg-btn expense">
+                            <i class="fa-solid fa-arrow-trend-down"></i> Expense
+                        </span>
+                    </label>
+                    <label class="type-seg-option">
+                        <input type="radio" name="txn-type" value="income">
+                        <span class="type-seg-btn income">
+                            <i class="fa-solid fa-arrow-trend-up"></i> Income
+                        </span>
+                    </label>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group span-2">
+                        <label>Title / Description</label>
+                        <input type="text" id="txn-title" class="form-input" required placeholder="e.g. Swiggy dinner with Rahul">
+                    </div>
+                    <div class="form-group">
+                        <label>Amount (₹)</label>
+                        <div class="input-with-prefix">
+                            <span class="prefix">₹</span>
+                            <input type="number" id="txn-amount" class="form-input" min="1" step="0.01" required placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" id="txn-date" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="txn-category" class="form-input" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Mode</label>
+                        <select id="txn-mode" class="form-input" required>
+                            <option value="UPI">UPI (GPay/PhonePe)</option>
+                            <option value="Credit Card">Credit Card</option>
+                            <option value="Debit Card">Debit Card</option>
+                            <option value="Cash">Cash</option>
+                            <option value="Net Banking">Net Banking</option>
+                            <option value="BNPL">Buy Now Pay Later</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Split Bill -->
+                <div id="split-bill-section" class="split-section">
+                    <div class="split-toggle">
+                        <div class="toggle-info">
+                            <i class="fa-solid fa-users"></i>
+                            <div>
+                                <p class="toggle-title">Split this bill?</p>
+                                <p class="toggle-sub">Track who owes you money</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="txn-is-split">
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                        </label>
+                    </div>
+                    <div id="split-details" class="split-detail-fields hidden">
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label>Friend's Name</label>
+                                <input type="text" id="split-friend-name" class="form-input" placeholder="e.g. Rahul">
+                            </div>
+                            <div class="form-group">
+                                <label>Amount Owed to You (₹)</label>
+                                <div class="input-with-prefix">
+                                    <span class="prefix">₹</span>
+                                    <input type="number" id="split-amount-owed" class="form-input" min="1" step="0.01" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Notes (Optional)</label>
+                    <textarea id="txn-notes" class="form-input" rows="2" placeholder="Any extra details..."></textarea>
+                </div>
+
+                <div class="modal-footer-actions">
+                    <button type="button" class="btn btn-ghost close-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary glow">
+                        <i class="fa-solid fa-check"></i> Save Transaction
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ========== BUDGET MODAL ========== -->
+<div id="budget-modal" class="modal-overlay" role="dialog">
+    <div class="modal-box wide-box">
+        <div class="modal-hdr">
+            <div class="modal-hdr-left">
+                <div class="modal-icon-badge warning">
+                    <i class="fa-solid fa-sliders"></i>
+                </div>
+                <h3>Budget Configuration</h3>
+            </div>
+            <button class="close-modal icon-btn" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="budget-form">
+                <div class="form-group">
+                    <label class="label-large">Monthly Budget Limit (₹)</label>
+                    <p class="label-sub">Your total spending cap for the month</p>
+                    <div class="input-with-prefix large">
+                        <span class="prefix">₹</span>
+                        <input type="number" id="global-budget-input" class="form-input large" placeholder="e.g. 15000">
+                    </div>
+                </div>
+                <div class="divider-label">Category Limits</div>
+                <div id="category-budgets-inputs" class="budget-cat-grid"></div>
+                <div class="modal-footer-actions">
+                    <button type="button" class="btn btn-ghost close-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary glow">Save Budgets</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ========== GOAL MODAL ========== -->
+<div id="goal-modal" class="modal-overlay" role="dialog">
+    <div class="modal-box">
+        <div class="modal-hdr">
+            <div class="modal-hdr-left">
+                <div class="modal-icon-badge success">
+                    <i class="fa-solid fa-bullseye"></i>
+                </div>
+                <h3 id="goal-modal-title">Create Goal</h3>
+            </div>
+            <button class="close-modal icon-btn" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="goal-form">
+                <input type="hidden" id="goal-id">
+                <div class="form-group">
+                    <label>Goal Name</label>
+                    <input type="text" id="goal-name" class="form-input" placeholder="e.g. Goa Trip 🏖️" required>
+                </div>
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label>Target Amount (₹)</label>
+                        <div class="input-with-prefix">
+                            <span class="prefix">₹</span>
+                            <input type="number" id="goal-target" class="form-input" placeholder="0.00" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Saved So Far (₹)</label>
+                        <div class="input-with-prefix">
+                            <span class="prefix">₹</span>
+                            <input type="number" id="goal-saved" class="form-input" placeholder="0.00">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label>Target Date</label>
+                        <input type="date" id="goal-date" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label>Icon (Emoji)</label>
+                        <input type="text" id="goal-icon" class="form-input" placeholder="🏖️" maxlength="4">
+                    </div>
+                </div>
+                <div class="modal-footer-actions">
+                    <button type="button" class="btn btn-ghost close-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary glow">Save Goal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ========== SUBSCRIPTION MODAL ========== -->
+<div id="sub-modal" class="modal-overlay" role="dialog">
+    <div class="modal-box">
+        <div class="modal-hdr">
+            <div class="modal-hdr-left">
+                <div class="modal-icon-badge info">
+                    <i class="fa-solid fa-rotate"></i>
+                </div>
+                <h3 id="sub-modal-title">Add Subscription</h3>
+            </div>
+            <button class="close-modal icon-btn" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="sub-form">
+                <input type="hidden" id="sub-id">
+                <div class="form-group">
+                    <label>Service Name</label>
+                    <input type="text" id="sub-name" class="form-input" placeholder="e.g. Netflix, Spotify" required>
+                </div>
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label>Amount (₹/month)</label>
+                        <div class="input-with-prefix">
+                            <span class="prefix">₹</span>
+                            <input type="number" id="sub-amount" class="form-input" placeholder="0.00" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Due Day (of month)</label>
+                        <input type="number" id="sub-due-day" class="form-input" min="1" max="31" placeholder="e.g. 15">
+                    </div>
+                </div>
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="sub-category" class="form-input">
+                            <option value="Streaming">Streaming</option>
+                            <option value="Music">Music</option>
+                            <option value="Education">Education</option>
+                            <option value="Cloud">Cloud Storage</option>
+                            <option value="Gym">Gym</option>
+                            <option value="Software">Software</option>
+                            <option value="Gaming">Gaming</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Icon (Emoji)</label>
+                        <input type="text" id="sub-icon" class="form-input" placeholder="🎬" maxlength="4">
+                    </div>
+                </div>
+                <div class="modal-footer-actions">
+                    <button type="button" class="btn btn-ghost close-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary glow">Save Subscription</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ========== TOAST ========== -->
+<div id="toast-container" aria-live="polite"></div>
+
+<!-- ========== MAIN APP ========== -->
+<div class="app-shell">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-logo">
+                <i class="fa-solid fa-wallet"></i>
+            </div>
+            <div class="brand-text">
+                <span class="brand-name">SpendWise</span>
+                <span class="brand-tag">Pro Edition</span>
+            </div>
+            <button id="close-sidebar-btn" class="icon-btn mobile-only"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="sidebar-search">
+            <button id="cmd-trigger" class="cmd-trigger-btn" title="Press Ctrl+K">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <span>Quick search...</span>
+                <kbd>⌘K</kbd>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-section-label">Main</div>
+            <ul class="nav-links">
+                <li class="active" data-page="dashboard">
+                    <a href="#">
+                        <div class="nav-icon-wrap"><i class="fa-solid fa-grid-2"></i></div>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li data-page="transactions">
+                    <a href="#">
+                        <div class="nav-icon-wrap"><i class="fa-solid fa-receipt"></i></div>
+                        <span>Transactions</span>
+                        <div class="nav-badge" id="nav-txn-badge">0</div>
+                    </a>
+                </li>
+                <li data-page="splits">
+                    <a href="#">
+                        <div class="nav-icon-wrap"><i class="fa-solid fa-users"></i></div>
+                        <span>Split Bills</span>
+                        <div class="nav-badge pending" id="nav-split-badge">0</div>
+                    </a>
+                </li>
+            </ul>
+
+            <div class="nav-section-label">Insights</div>
+            <ul class="nav-links">
+                <li data-page="analytics">
+                    <a href="#">
+                        <div class="nav-icon-wrap"><i class="fa-solid fa-chart-mixed"></i></div>
+                        <span>Analytics</span>
+                    </a>
+                </li>
+                <li data-page="goals">
+                    <a href="#">
+                        <div class="nav-icon-wrap"><i class="fa-solid fa-bullseye-arrow"></i></div>
+                        <span>Goals</span>
+                    </a>
+                </li>
+                <li data-page="subscriptions">
+                    <a href="#">
+                        <div class="nav-icon-wrap"><i class="fa-solid fa-rotate"></i></div>
+                        <span>Subscriptions</span>
+                    </a>
+                </li>
+            </ul>
+
+            <div class="nav-section-label">System</div>
+            <ul class="nav-links">
+                <li data-page="settings">
+                    <a href="#">
+                        <div class="nav-icon-wrap"><i class="fa-solid fa-gear"></i></div>
+                        <span>Settings</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <div class="sidebar-footer">
+            <button id="add-transaction-btn" class="add-btn">
+                <i class="fa-solid fa-plus"></i>
+                <span>Add Transaction</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+        <!-- TOP BAR -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <button id="open-sidebar-btn" class="icon-btn mobile-only"><i class="fa-solid fa-bars"></i></button>
+                <div class="page-breadcrumb">
+                    <span class="breadcrumb-dot"></span>
+                    <h1 id="page-title">Dashboard</h1>
+                </div>
+            </div>
+            <div class="topbar-right">
+                <div class="topbar-greeting" id="topbar-greeting">
+                    <i class="fa-solid fa-sun"></i> <span id="greeting-text">Good Morning</span>
+                </div>
+                <div class="topbar-divider"></div>
+                <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+                <button class="icon-btn notif-btn" aria-label="Notifications">
+                    <i class="fa-solid fa-bell"></i>
+                    <span class="notif-dot" id="notif-dot"></span>
+                </button>
+                <div class="user-chip">
+                    <img src="https://api.dicebear.com/9.x/avataaars/svg?seed=college&backgroundColor=b6e3f4" alt="User Avatar" class="user-chip-img">
+                    <div class="user-chip-info">
+                        <span class="user-chip-name">Student</span>
+                        <span class="user-chip-plan">Pro Plan</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- ===== DASHBOARD PAGE ===== -->
+        <section id="page-dashboard" class="page active">
+
+            <!-- Budget Banner -->
+            <div class="budget-hero-card">
+                <div class="budget-hero-content">
+                    <div class="budget-hero-left">
+                        <p class="budget-hero-label">Monthly Budget</p>
+                        <div class="budget-hero-numbers">
+                            <span class="budget-hero-spent mono" id="hero-spent">₹0</span>
+                            <span class="budget-hero-sep">/</span>
+                            <span class="budget-hero-total mono" id="hero-total">₹0</span>
+                        </div>
+                        <div class="budget-hero-bar-track">
+                            <div class="budget-hero-bar-fill" id="hero-bar-fill"></div>
+                        </div>
+                        <p class="budget-hero-sub" id="hero-sub-text">Set a budget to start tracking</p>
+                    </div>
+                    <div class="budget-hero-right">
+                        <button id="setup-budget-btn" class="btn btn-ghost-light">
+                            <i class="fa-solid fa-sliders"></i> Configure
+                        </button>
+                        <div class="budget-ring-wrap">
+                            <canvas id="budget-mini-ring" width="110" height="110"></canvas>
+                            <div class="budget-ring-text">
+                                <span id="hero-percent" class="mono">0%</span>
+                                <span>used</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="budget-hero-emoji">🎓</div>
+            </div>
+
+            <!-- Key Metric Cards (Bento Row) -->
+            <div class="bento-grid">
+                <!-- Total Balance -->
+                <div class="bento-card balance-card span-1">
+                    <div class="bento-top">
+                        <span class="bento-label">Net Balance</span>
+                        <div class="bento-icon-chip purple"><i class="fa-solid fa-wallet"></i></div>
+                    </div>
+                    <h2 class="bento-value mono" id="stat-total-balance">₹0</h2>
+                    <div class="bento-sparkline-wrap">
+                        <canvas id="balance-sparkline" height="50"></canvas>
+                    </div>
+                    <p class="bento-trend" id="balance-trend-text"></p>
+                </div>
+
+                <!-- Monthly Income -->
+                <div class="bento-card income-card span-1">
+                    <div class="bento-top">
+                        <span class="bento-label">Monthly Income</span>
+                        <div class="bento-icon-chip green"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                    </div>
+                    <h2 class="bento-value mono" id="stat-total-income">₹0</h2>
+                    <div class="income-sources" id="income-sources-list"></div>
+                </div>
+
+                <!-- Monthly Expense -->
+                <div class="bento-card expense-card span-1">
+                    <div class="bento-top">
+                        <span class="bento-label">Monthly Spend</span>
+                        <div class="bento-icon-chip red"><i class="fa-solid fa-arrow-trend-down"></i></div>
+                    </div>
+                    <h2 class="bento-value mono" id="stat-month-expense">₹0</h2>
+                    <div class="bento-sparkline-wrap">
+                        <canvas id="expense-sparkline" height="50"></canvas>
+                    </div>
+                    <p class="bento-trend" id="expense-trend-text"></p>
+                </div>
+
+                <!-- Friends Owe Me -->
+                <div class="bento-card owed-card span-1">
+                    <div class="bento-top">
+                        <span class="bento-label">Friends Owe Me</span>
+                        <div class="bento-icon-chip blue"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                    </div>
+                    <h2 class="bento-value mono" id="stat-total-owed">₹0</h2>
+                    <div class="owed-friends-list" id="owed-friends-list"></div>
+                </div>
+            </div>
+
+            <!-- Middle Row -->
+            <div class="dash-mid-grid">
+
+                <!-- Monthly Trend Chart (big) -->
+                <div class="dash-card chart-big-card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Cash Flow</h3>
+                            <p class="card-sub">Income vs Expenses — last 6 months</p>
+                        </div>
+                        <div class="chart-legend">
+                            <span class="legend-dot green"></span><span>Income</span>
+                            <span class="legend-dot red"></span><span>Expense</span>
+                        </div>
+                    </div>
+                    <div class="chart-wrap" style="height: 240px;">
+                        <canvas id="monthlyTrendChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- AI Insights Panel -->
+                <div class="dash-card insights-card">
+                    <div class="card-header">
+                        <div>
+                            <h3><i class="fa-solid fa-sparkles text-purple"></i> AI Insights</h3>
+                            <p class="card-sub">Smart spending analysis</p>
+                        </div>
+                    </div>
+                    <div class="insights-list" id="insights-list">
+                        <!-- Injected by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Row -->
+            <div class="dash-bottom-grid">
+
+                <!-- Top Spending Categories -->
+                <div class="dash-card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Top Categories</h3>
+                            <p class="card-sub">This month's breakdown</p>
+                        </div>
+                        <canvas id="categoryPieChart" width="80" height="80" style="width:80px;height:80px;"></canvas>
+                    </div>
+                    <div class="category-breakdown" id="category-breakdown-list"></div>
+                </div>
+
+                <!-- Recent Transactions -->
+                <div class="dash-card wide-card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Recent Transactions</h3>
+                            <p class="card-sub">Last 6 entries</p>
+                        </div>
+                        <a href="#" class="link-btn view-all-link" data-target="transactions">View All <i class="fa-solid fa-arrow-right"></i></a>
+                    </div>
+                    <div class="txn-feed" id="recent-transactions-feed">
+                        <!-- Injected by JS -->
+                    </div>
+                </div>
+
+                <!-- Quick Split Status -->
+                <div class="dash-card">
+                    <div class="card-header">
+                        <div>
+                            <h3>Split Bills</h3>
+                            <p class="card-sub">Pending settlements</p>
+                        </div>
+                        <a href="#" class="link-btn view-all-link" data-target="splits">View All</a>
+                    </div>
+                    <div class="split-feed" id="dashboard-splits-list"></div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ===== TRANSACTIONS PAGE ===== -->
+        <section id="page-transactions" class="page">
+            <div class="page-toolbar">
+                <div class="toolbar-filters">
+                    <select id="filter-type" class="filter-chip">
+                        <option value="all">All Types</option>
+                        <option value="expense">Expense</option>
+                        <option value="income">Income</option>
+                    </select>
+                    <select id="filter-category" class="filter-chip">
+                        <option value="all">All Categories</option>
+                    </select>
+                    <select id="filter-date" class="filter-chip">
+                        <option value="all">All Time</option>
+                        <option value="today">Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                        <option value="year">This Year</option>
+                    </select>
+                    <select id="sort-by" class="filter-chip">
+                        <option value="date-desc">Newest First</option>
+                        <option value="date-asc">Oldest First</option>
+                        <option value="amount-desc">Highest Amount</option>
+                        <option value="amount-asc">Lowest Amount</option>
+                    </select>
+                    <button id="reset-filters" class="btn btn-ghost sm">Reset</button>
+                </div>
+                <div class="toolbar-right">
+                    <div class="search-pill">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="global-search" placeholder="Search transactions...">
+                    </div>
+                    <button id="add-transaction-btn-2" class="btn btn-primary sm glow">
+                        <i class="fa-solid fa-plus"></i> Add
+                    </button>
+                </div>
+            </div>
+
+            <div class="data-card">
+                <div class="table-wrap">
+                    <table class="pro-table" id="transactions-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Title</th>
+                                <th>Category</th>
+                                <th>Mode</th>
+                                <th>Type</th>
+                                <th class="text-right">Amount</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="all-transactions-body"></tbody>
+                    </table>
+                </div>
+                <div id="no-transactions-msg" class="empty-state hidden">
+                    <i class="fa-solid fa-ghost"></i>
+                    <h4>No transactions found</h4>
+                    <p>Try a different filter, or add a new transaction.</p>
+                </div>
+                <div class="table-footer">
+                    <span id="table-count-label" class="table-count">0 entries</span>
+                    <div class="pagination">
+                        <button id="prev-page" class="icon-btn" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                        <span id="page-indicator" class="page-pill">1 / 1</span>
+                        <button id="next-page" class="icon-btn" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== SPLIT BILLS PAGE ===== -->
+        <section id="page-splits" class="page">
+            <div class="bento-grid small">
+                <div class="bento-card span-1">
+                    <div class="bento-top">
+                        <span class="bento-label">Total Owed</span>
+                        <div class="bento-icon-chip green"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                    </div>
+                    <h2 class="bento-value mono" id="stat-split-owed">₹0</h2>
+                </div>
+                <div class="bento-card span-1">
+                    <div class="bento-top">
+                        <span class="bento-label">Pending</span>
+                        <div class="bento-icon-chip red"><i class="fa-solid fa-clock"></i></div>
+                    </div>
+                    <h2 class="bento-value mono" id="stat-split-pending-count">0</h2>
+                </div>
+                <div class="bento-card span-1">
+                    <div class="bento-top">
+                        <span class="bento-label">Settled</span>
+                        <div class="bento-icon-chip blue"><i class="fa-solid fa-check-circle"></i></div>
+                    </div>
+                    <h2 class="bento-value mono" id="stat-split-settled-count">0</h2>
+                </div>
+            </div>
+
+            <div class="data-card" style="margin-top:1.5rem;">
+                <div class="card-header" style="padding:1.5rem;">
+                    <h3>Split Bills History</h3>
+                </div>
+                <div class="table-wrap">
+                    <table class="pro-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Expense</th>
+                                <th class="text-right">Total Bill</th>
+                                <th>Friend</th>
+                                <th class="text-right">Owed Amount</th>
+                                <th>Status</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="split-bills-body"></tbody>
+                    </table>
+                </div>
+                <div id="no-splits-msg" class="empty-state hidden">
+                    <i class="fa-solid fa-handshake-slash"></i>
+                    <h4>No split bills found</h4>
+                    <p>When you split an expense, it will appear here.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== ANALYTICS PAGE ===== -->
+        <section id="page-analytics" class="page">
+            <div class="analytics-toolbar">
+                <button id="setup-budget-btn-2" class="btn btn-primary sm glow"><i class="fa-solid fa-sliders"></i> Configure Budgets</button>
+            </div>
+            <div class="analytics-grid">
+                <div class="data-card">
+                    <div class="card-header" style="padding:1.5rem 1.5rem 0;">
+                        <div><h3>Budget vs Actual</h3><p class="card-sub">This month by category</p></div>
+                    </div>
+                    <div class="chart-wrap" style="height:280px;padding:1rem;">
+                        <canvas id="budgetRadarChart"></canvas>
+                    </div>
+                    <div class="budget-cats-list" id="category-budgets-list" style="padding:0 1.5rem 1.5rem;"></div>
+                </div>
+                <div class="data-card">
+                    <div class="card-header" style="padding:1.5rem 1.5rem 0;">
+                        <div><h3>Payment Methods</h3><p class="card-sub">All time breakdown</p></div>
+                    </div>
+                    <div class="chart-wrap" style="height:280px;padding:1rem;">
+                        <canvas id="paymentDoughnutChart"></canvas>
+                    </div>
+                </div>
+                <div class="data-card span-full">
+                    <div class="card-header" style="padding:1.5rem 1.5rem 0;">
+                        <div><h3>6-Month Cash Flow</h3><p class="card-sub">Income, expenses and net over time</p></div>
+                    </div>
+                    <div class="chart-wrap" style="height:260px;padding:1rem;">
+                        <canvas id="analyticsBarChart"></canvas>
+                    </div>
+                </div>
+                <div class="data-card">
+                    <div class="card-header" style="padding:1.5rem 1.5rem 0;">
+                        <div><h3>Category Spending</h3><p class="card-sub">This month</p></div>
+                    </div>
+                    <div class="chart-wrap" style="height:300px;padding:1rem;">
+                        <canvas id="categoryPieChart2"></canvas>
+                    </div>
+                </div>
+                <div class="data-card">
+                    <div class="card-header" style="padding:1.5rem 1.5rem 0;">
+                        <div><h3>Day-wise Spending</h3><p class="card-sub">Current month</p></div>
+                    </div>
+                    <div class="chart-wrap" style="height:300px;padding:1rem;">
+                        <canvas id="dailySpendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== GOALS PAGE ===== -->
+        <section id="page-goals" class="page">
+            <div class="page-toolbar simple">
+                <p class="page-desc">Track your savings goals and milestones.</p>
+                <button id="add-goal-btn" class="btn btn-primary sm glow">
+                    <i class="fa-solid fa-plus"></i> New Goal
+                </button>
+            </div>
+            <div class="goals-grid" id="goals-grid">
+                <!-- Injected by JS -->
+            </div>
+            <div id="no-goals-msg" class="empty-state">
+                <i class="fa-solid fa-bullseye-arrow"></i>
+                <h4>No goals yet</h4>
+                <p>Create a goal to start tracking your savings — like a trip, new phone, or rainy day fund.</p>
+                <button id="add-goal-btn-empty" class="btn btn-primary">Create Your First Goal</button>
+            </div>
+        </section>
+
+        <!-- ===== SUBSCRIPTIONS PAGE ===== -->
+        <section id="page-subscriptions" class="page">
+            <div class="page-toolbar simple">
+                <p class="page-desc">Track your monthly recurring bills and subscriptions.</p>
+                <button id="add-sub-btn" class="btn btn-primary sm glow">
+                    <i class="fa-solid fa-plus"></i> Add Subscription
+                </button>
+            </div>
+            <div class="subs-summary-row">
+                <div class="subs-total-card">
+                    <p>Monthly Burn Rate</p>
+                    <h2 class="mono" id="subs-total">₹0</h2>
+                    <p class="card-sub">Fixed monthly expenses</p>
+                </div>
+                <div class="subs-count-card">
+                    <p>Active Subscriptions</p>
+                    <h2 class="mono" id="subs-count">0</h2>
+                    <p class="card-sub">Services you're paying for</p>
+                </div>
+            </div>
+            <div class="subs-grid" id="subs-grid">
+                <!-- Injected by JS -->
+            </div>
+            <div id="no-subs-msg" class="empty-state hidden">
+                <i class="fa-solid fa-rotate"></i>
+                <h4>No subscriptions tracked</h4>
+                <p>Add Netflix, Spotify, Gym or any recurring bills here.</p>
+            </div>
+        </section>
+
+        <!-- ===== SETTINGS PAGE ===== -->
+        <section id="page-settings" class="page">
+            <div class="settings-layout">
+                <div class="settings-group">
+                    <div class="settings-group-header">
+                        <i class="fa-solid fa-palette"></i> Appearance
+                    </div>
+                    <div class="settings-row">
+                        <div>
+                            <span class="settings-row-title">Dark Mode</span>
+                            <span class="settings-row-sub">Toggle between dark and light theme</span>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="dark-mode-toggle" checked>
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <div class="settings-group-header">
+                        <i class="fa-solid fa-database"></i> Data Management
+                    </div>
+                    <div class="settings-actions-grid">
+                        <button id="export-data-btn" class="settings-action-btn">
+                            <i class="fa-solid fa-download"></i>
+                            <div><span>Export Data</span><small>Save as JSON backup</small></div>
+                        </button>
+                        <label for="import-file" class="settings-action-btn">
+                            <i class="fa-solid fa-upload"></i>
+                            <div><span>Import Data</span><small>Restore from backup</small></div>
+                        </label>
+                        <input type="file" id="import-file" accept=".json" class="hidden">
+                        <button id="generate-sample-btn" class="settings-action-btn">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                            <div><span>Generate Sample Data</span><small>500+ college transactions</small></div>
+                        </button>
+                    </div>
+                    <div class="danger-zone-card">
+                        <div class="danger-zone-header">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Danger Zone
+                        </div>
+                        <p>Permanently delete all transactions, goals, and subscriptions.</p>
+                        <button id="clear-data-btn" class="btn btn-danger sm">
+                            <i class="fa-solid fa-trash"></i> Delete All Data
+                        </button>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <div class="settings-group-header">
+                        <i class="fa-solid fa-circle-info"></i> About
+                    </div>
+                    <div class="settings-about">
+                        <div class="about-logo">
+                            <i class="fa-solid fa-wallet"></i>
+                        </div>
+                        <h3>SpendWise Pro</h3>
+                        <p class="version-tag">Version 3.0 — College Edition</p>
+                        <p>A 100% client-side personal finance dashboard. All data is stored locally in your browser using the LocalStorage API. No server, no login, no tracking.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<!-- Scripts (order matters) -->
+<script src="js/utils.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
