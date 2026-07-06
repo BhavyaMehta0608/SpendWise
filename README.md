@@ -1,10 +1,10 @@
-# SpendWise 2.0 – College Edition 🎓
+# SpendWise – College Edition 🎓
 
-![SpendWise 2.0 Preview](https://via.placeholder.com/1200x600.png?text=SpendWise+2.0+Preview)
+![SpendWise Preview](https://comfy-douhua-b93631.netlify.app/)
 
-SpendWise 2.0 is a premium, client-side personal finance dashboard tailored specifically for college students. With a stunning glassmorphism UI, advanced budgeting features, and split-bill tracking, managing college expenses has never been easier or looked better.
+SpendWise is a premium, client-side personal finance dashboard tailored specifically for college students. With a stunning glassmorphism UI, advanced budgeting features, and split-bill tracking, managing college expenses has never been easier or looked better.
 
-## ✨ New in Version 2.0 (College Edition)
+## ✨ New in Version (College Edition)
 
 - **Budgeting System**: Set a global monthly budget and specific category limits. Track your spending via dynamic progress bars and a beautiful Budget vs Actual Radar Chart.
 - **Split Bills Tracker**: Easily track expenses split with friends (e.g., cab rides, Swiggy orders). Log "Who owes me" and mark them as settled when paid.
