@@ -1,6 +1,6 @@
 # SpendWise – College Edition 🎓
 
-![SpendWise Preview](https://comfy-douhua-b93631.netlify.app/)
+[SpendWise Preview](https://comfy-douhua-b93631.netlify.app/)
 
 SpendWise is a premium, client-side personal finance dashboard tailored specifically for college students. With a stunning glassmorphism UI, advanced budgeting features, and split-bill tracking, managing college expenses has never been easier or looked better.
 
